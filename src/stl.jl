@@ -351,7 +351,7 @@ begin
 	#ρ̃(x, □::Always; w=W) = smoothmin(ρ̃(x[t′], □.ϕ; w) for t′ ∈ get_interval(□, x); w)
 
 	function (□::Always)(x)
-		if isa(□.ϕ, Predicate) # Base case, predicate
+		if is_leaf(□.ϕ)#if isa(□.ϕ, Predicate) # Base case, predicate
 			return all(□.ϕ(x[t]) for t ∈ get_interval(□, x))
 		else # Recurse
 			rr = []
@@ -364,7 +364,7 @@ begin
 	end
 	
 	function ρ(x, □::Always)
-		if isa(□.ϕ, Predicate) # base casee
+		if is_leaf(□.ϕ)#if isa(□.ϕ, Predicate) # base casee
 			return minimum(ρ(x[t′], □.ϕ) for t′ ∈ get_interval(□, x))
 		else
 			robs = [ρ(x[(Zygote.ignore(□.ϕ).I .+ (_t - 1))], Zygote.ignore(□.ϕ)) for _t in Zygote.ignore(□).I]
@@ -373,15 +373,16 @@ begin
 	end
 	
 	function ρ̃(x, □::Always; w=W)
-		if isa(□.ϕ, Predicate) # base casee
+		if is_leaf(□.ϕ)#if isa(□.ϕ, Predicate) # base casee
 			return smoothmin(ρ̃(x[t′], □.ϕ; w) for t′ ∈ get_interval(□, x); w)
 		else
 			robs = [ρ(x[(Zygote.ignore(□.ϕ.I) .+ (_t - 1))], Zygote.ignore(□.ϕ)) for _t in Zygote.ignore(□.I)]
 			return smoothmin(robs)
 		end
 	end
-		
 end
+
+
 
 # ╔═╡ 980379f9-3544-4363-aa6c-595d0c509124
 md"""
@@ -459,7 +460,7 @@ begin
 	#ρ̃(x, ◊::Eventually; w=W) = smoothmax(ρ̃(x[t′], ◊.ϕ; w) for t′∈get_interval(◊,x); w)
 
 	function (◊::Eventually)(x)
-		if isa(◊.ϕ, Predicate)
+		if is_leaf(◊.ϕ)#if isa(◊.ϕ, Predicate)
 			return any(◊.ϕ(x[t]) for t ∈ get_interval(◊, x))
 		else
 			rr = [◊.ϕ(x[(◊.ϕ.I .+ (_t - 1))]) for _t in ◊.I]
@@ -469,7 +470,7 @@ begin
 	
 
 	function ρ(x, ◊::Eventually)
-		if isa(◊.ϕ, Predicate) # base casee
+		if is_leaf(◊.ϕ)#if isa(◊.ϕ, Predicate) # base casee
 			return maximum(ρ(x[t′], ◊.ϕ) for t′ ∈ get_interval(◊, x))
 		else
 			robs = [ρ(x[(Zygote.ignore(◊.ϕ).I .+ (_t - 1))], Zygote.ignore(◊.ϕ)) for _t in Zygote.ignore(◊).I]
@@ -478,7 +479,7 @@ begin
 	end
 	
 	function ρ̃(x, ◊::Eventually; w=W)
-		if isa(◊.ϕ, Predicate) # base casee
+		if is_leaf(◊.ϕ)#if isa(◊.ϕ, Predicate) # base casee
 			return smoothmax(ρ̃(x[t′], ◊.ϕ; w) for t′ ∈ get_interval(◊, x); w)
 		else
 			robs = [ρ(x[(Zygote.ignore(◊.ϕ.I) .+ (_t - 1))], Zygote.ignore(◊.ϕ)) for _t in Zygote.ignore(◊.I)]
@@ -521,6 +522,10 @@ begin
 		end; w)
 	end
 end
+
+is_leaf(::Formula) = false
+is_leaf(::Predicate) = true
+is_leaf(::AtomicFunction) = true
 
 # ╔═╡ d57941cf-655b-45f8-b5e2-b39d3cfeb9fb
 robustness(xₜ, ϕ::Formula; w=0) = w == 0 ? ρ(xₜ, ϕ) : ρ̃(xₜ, ϕ; w)
