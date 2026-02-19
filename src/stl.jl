@@ -418,12 +418,14 @@ begin
 		ψ::Formula
 	end
 	
-	(q::Disjunction)(x) = any(q.ϕ(x) .∨ q.ψ(x))
-
-	ρ(xₜ, q::Disjunction) = max.(ρ(xₜ, q.ϕ), ρ(xₜ, q.ψ))
+	#(q::Disjunction)(x) = any(q.ϕ(x) .∨ q.ψ(x))
+	#ρ(xₜ, q::Disjunction) = max.(ρ(xₜ, q.ϕ), ρ(xₜ, q.ψ))
+	
+	(q::Disjunction)(x::AbstractMatrix) = q.ϕ(x) ∨ q.ψ(x)
+	ρ(x, q::Disjunction) = max(ρ(x, q.ϕ), ρ(x, q.ψ))
+	
 	ρ̃(xₜ, q::Disjunction; w=W) = smoothmax.(ρ̃(xₜ, q.ϕ; w), ρ̃(xₜ, q.ψ; w); w)
 end
-
 # ╔═╡ b0b10df8-07f0-4317-8f3a-3620a3cb8e8e
 begin
 	mutable struct Implication <: Formula
