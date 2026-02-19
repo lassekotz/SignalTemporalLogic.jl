@@ -523,10 +523,6 @@ begin
 	end
 end
 
-is_leaf(::Formula) = false
-is_leaf(::Predicate) = true
-is_leaf(::AtomicFunction) = true
-
 # ╔═╡ d57941cf-655b-45f8-b5e2-b39d3cfeb9fb
 robustness(xₜ, ϕ::Formula; w=0) = w == 0 ? ρ(xₜ, ϕ) : ρ̃(xₜ, ϕ; w)
 
