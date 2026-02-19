@@ -166,13 +166,16 @@ $$\rho(x_t, \mu_c) =  \mu(x_t) - c \qquad (\text{when}\; \mu(x_t) > c)$$
 
 # ╔═╡ 1ec0bddb-28d8-420b-856d-2c1ed70a77a4
 begin
-	mutable struct Predicate <: Formula
-		μ::Function # ℝⁿ → ℝ
-		c::Union{Real, Vector}
+	mutable struct Predicate{F, C} <: Formula
+		μ::F # ℝⁿ → ℝ
+		c::C# Union{Real, Vector}
 	end
 
-	(ϕ::Predicate)(x) = map(xₜ->all(xₜ .> ϕ.c), ϕ.μ(x))
-	ρ(x, ϕ::Predicate) = map(xₜ->xₜ - ϕ.c, ϕ.μ(x))
+	#(ϕ::Predicate)(x) = map(xₜ->all(xₜ .> ϕ.c), ϕ.μ(x))
+	#ρ(x, ϕ::Predicate) = map(xₜ->xₜ - ϕ.c, ϕ.μ(x))
+	
+	(ϕ::Predicate)(x::AbstractMatrix) = ϕ.μ(x[:, 1]) > ϕ.c
+	ρ(x, ϕ::Predicate) = ϕ.μ(x[:, 1]) - ϕ.c
 	ρ̃(x, ϕ::Predicate; kwargs...) = ρ(x, ϕ)
 end
 
