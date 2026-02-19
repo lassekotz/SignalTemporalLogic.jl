@@ -346,42 +346,41 @@ end
 
 # ╔═╡ 967af87a-d0d7-42ea-871d-492d9406f9c6
 begin
-	mutable struct Always <: Formula
-		ϕ::Formula
-		I::Interval
+	mutable struct Always{F<:Formula, I<:Interval} <: Formula
+		ϕ::F#Formula
+		I::I#Interval
 	end
 
-	# (□::Always)(x) = all(□.ϕ(x[t]) for t ∈ get_interval(□, x))
-	# ρ(x, □::Always) = minimum(ρ(x[t′], □.ϕ) for t′ ∈ get_interval(□, x))
-	#ρ̃(x, □::Always; w=W) = smoothmin(ρ̃(x[t′], □.ϕ; w) for t′ ∈ get_interval(□, x); w)
+	#(□::Always)(x) = all(□.ϕ(x[t]) for t ∈ get_interval(□, x))
+	#ρ(x, □::Always) = minimum(ρ(x[t′], □.ϕ) for t′ ∈ get_interval(□, x))
+	ρ̃(x, □::Always; w=W) = smoothmin(ρ̃(x[t′], □.ϕ; w) for t′ ∈ get_interval(□, x); w)
 
-	function (□::Always)(x)
-		if is_leaf(□.ϕ)#if isa(□.ϕ, Predicate) # Base case, predicate
-			return all(□.ϕ(x[t]) for t ∈ get_interval(□, x))
-		else # Recurse
-			rr = []
-			for _t in □.I
-				x_subslice = x[(□.ϕ.I .+ (_t - 1))]
-				push!(rr, □.ϕ(x_subslice))
-			end
-			return all(rr)
+	function (□::Always)(x::AbstractMatrix)	
+		T = size(x, 2)
+		_I = get_interval(□, x) 
+		a_parent, b_parent = first(_I), last(_I)
+		
+		for _t in _I
+			b_child = (_t + b_parent - 1 < T) ? _t + b_parent - 1 : T
+			subsignal = view(x, :, _t:b_child)
+			□.ϕ(subsignal) || return false
+		end
+		return true
+	end
+	
+	function ρ(x::AbstractMatrix, □::Always)
+		T = size(x, 2)
+		_I = get_interval(□, x)
+		return mapreduce(min, _I) do _t
+			ρ(view(x, :, _t:T), □.ϕ)
 		end
 	end
 	
-	function ρ(x, □::Always)
-		if is_leaf(□.ϕ)#if isa(□.ϕ, Predicate) # base casee
-			return minimum(ρ(x[t′], □.ϕ) for t′ ∈ get_interval(□, x))
+	function ρ̃(x::AbstractMatrix, □::Always; w=W)
+		if is_leaf(□.ϕ) #TODO: Migrate from is_leaf brnaching similar to ρ evals.
+			return smoothmin(ρ̃(x[:, t′], □.ϕ; w) for t′ ∈ get_interval(□, x); w)
 		else
-			robs = [ρ(x[(Zygote.ignore(□.ϕ).I .+ (_t - 1))], Zygote.ignore(□.ϕ)) for _t in Zygote.ignore(□).I]
-			return minimum(robs)
-		end
-	end
-	
-	function ρ̃(x, □::Always; w=W)
-		if is_leaf(□.ϕ)#if isa(□.ϕ, Predicate) # base casee
-			return smoothmin(ρ̃(x[t′], □.ϕ; w) for t′ ∈ get_interval(□, x); w)
-		else
-			robs = [ρ(x[(Zygote.ignore(□.ϕ.I) .+ (_t - 1))], Zygote.ignore(□.ϕ)) for _t in Zygote.ignore(□.I)]
+			robs = [ρ(x[:, (Zygote.ignore(□.ϕ.I) .+ (_t - 1))], Zygote.ignore(□.ϕ)) for _t in Zygote.ignore(□.I)]
 			return smoothmin(robs)
 		end
 	end
@@ -455,43 +454,45 @@ end
 
 # ╔═╡ d2e95e25-f1df-4807-bc41-fb7ebb7a3d55
 begin
-	mutable struct Eventually <: Formula
-		ϕ::Formula
-		I::Interval
+	mutable struct Eventually{F<:Formula, I<:Interval} <: Formula
+		ϕ::F
+		I::I
 	end
 
-	# (◊::Eventually)(x) = any(◊.ϕ(x[t]) for t ∈ get_interval(◊, x))
-	# ρ(x, ◊::Eventually) = maximum(ρ(x[t′], ◊.ϕ) for t′ ∈ get_interval(◊, x))
-	#ρ̃(x, ◊::Eventually; w=W) = smoothmax(ρ̃(x[t′], ◊.ϕ; w) for t′∈get_interval(◊,x); w)
+	#(◊::Eventually)(x) = any(◊.ϕ(x[t]) for t ∈ get_interval(◊, x))
+	#ρ(x, ◊::Eventually) = maximum(ρ(x[t′], ◊.ϕ) for t′ ∈ get_interval(◊, x))
+	ρ̃(x, ◊::Eventually; w=W) = smoothmax(ρ̃(x[t′], ◊.ϕ; w) for t′∈get_interval(◊,x); w)
 
-	function (◊::Eventually)(x)
-		if is_leaf(◊.ϕ)#if isa(◊.ϕ, Predicate)
-			return any(◊.ϕ(x[t]) for t ∈ get_interval(◊, x))
-		else
-			rr = [◊.ϕ(x[(◊.ϕ.I .+ (_t - 1))]) for _t in ◊.I]
-			return any(rr)
+	
+	function (◊::Eventually)(x::AbstractMatrix)
+		T = size(x, 2)
+		_I = get_interval(◊, x) 
+		a_parent, b_parent = first(_I), last(_I)
+		
+		for _t in _I
+			b_child = (_t + b_parent - 1 < T) ? _t + b_parent - 1 : T
+			subsignal = view(x, :, _t:b_child)
+			◊.ϕ(subsignal) && return true
+		end
+		return false
+	end
+	
+	function ρ(x::AbstractMatrix, ◊::Eventually)
+		T = size(x, 2)
+		_I = get_interval(◊, x)
+		return mapreduce(max, _I) do _t
+			ρ(view(x, :, _t:T), ◊.ϕ)
 		end
 	end
 	
-
-	function ρ(x, ◊::Eventually)
-		if is_leaf(◊.ϕ)#if isa(◊.ϕ, Predicate) # base casee
-			return maximum(ρ(x[t′], ◊.ϕ) for t′ ∈ get_interval(◊, x))
+	function ρ̃(x::Matrix, ◊::Eventually; w=W)
+		if is_leaf(◊.ϕ) #TODO: Migrate from is_leaf branching
+			return smoothmax(ρ̃(x[:, t′], ◊.ϕ; w) for t′ ∈ get_interval(◊, x); w)
 		else
-			robs = [ρ(x[(Zygote.ignore(◊.ϕ).I .+ (_t - 1))], Zygote.ignore(◊.ϕ)) for _t in Zygote.ignore(◊).I]
-			return maximum(robs)
-		end
-	end
-	
-	function ρ̃(x, ◊::Eventually; w=W)
-		if is_leaf(◊.ϕ)#if isa(◊.ϕ, Predicate) # base casee
-			return smoothmax(ρ̃(x[t′], ◊.ϕ; w) for t′ ∈ get_interval(◊, x); w)
-		else
-			robs = [ρ(x[(Zygote.ignore(◊.ϕ.I) .+ (_t - 1))], Zygote.ignore(◊.ϕ)) for _t in Zygote.ignore(◊.I)]
+			robs = [ρ(x[:, (Zygote.ignore(◊.ϕ.I) .+ (_t - 1))], Zygote.ignore(◊.ϕ)) for _t in Zygote.ignore(◊.I)]
 			return smoothmax(robs)
 		end
 	end
-	
 end
 
 # ╔═╡ b12507a8-1a50-4e88-9271-1fa5413c93a8
