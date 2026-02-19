@@ -186,12 +186,14 @@ $$\rho(x_t, \mu_c) =  c - \mu(x_t) \qquad (\text{when}\; \mu(x_t) < c)$$
 
 # ╔═╡ 3ed8b19e-6518-40b6-9320-3ab01d03f8f6
 begin
-	mutable struct FlippedPredicate <: Formula
-		μ::Function # ℝⁿ → ℝ
-		c::Union{Real, Vector}
+	mutable struct FlippedPredicate{F<:Function, C<:Union{Real, Vector}} <: Formula
+		μ::F#Function # ℝⁿ → ℝ
+		c::C#Union{Real, Vector}
 	end
 
-	(ϕ::FlippedPredicate)(x) = map(xₜ->all(xₜ .< ϕ.c), ϕ.μ(x))
+	#(ϕ::FlippedPredicate)(x) = map(xₜ->all(xₜ .< ϕ.c), ϕ.μ(x))
+	
+	(ϕ::FlippedPredicate)(x::AbstractMatrix) = ϕ.μ(x[:, 1]) < ϕ.c
 	ρ(x, ϕ::FlippedPredicate) = map(xₜ->ϕ.c - xₜ, ϕ.μ(x))
 	ρ̃(x, ϕ::FlippedPredicate; kwargs...) = ρ(x, ϕ)
 end
