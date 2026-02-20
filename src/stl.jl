@@ -377,11 +377,11 @@ begin
 	end
 	
 	function ρ̃(x::AbstractMatrix, □::Always; w=W)
-		if is_leaf(□.ϕ) #TODO: Migrate from is_leaf brnaching similar to ρ evals.
-			return smoothmin(ρ̃(x[:, t′], □.ϕ; w) for t′ ∈ get_interval(□, x); w)
-		else
-			robs = [ρ(x[:, (Zygote.ignore(□.ϕ.I) .+ (_t - 1))], Zygote.ignore(□.ϕ)) for _t in Zygote.ignore(□.I)]
-			return smoothmin(robs)
+		T = size(x, 2)
+		_I = get_interval(□, x)
+		_sm = (a, b) -> smoothmin(a, b; w=w)
+		return mapreduce(_sm, _I) do _t
+			ρ(view(x, :, _t:T), □.ϕ)
 		end
 	end
 end
@@ -488,11 +488,11 @@ begin
 	end
 	
 	function ρ̃(x::Matrix, ◊::Eventually; w=W)
-		if is_leaf(◊.ϕ) #TODO: Migrate from is_leaf branching
-			return smoothmax(ρ̃(x[:, t′], ◊.ϕ; w) for t′ ∈ get_interval(◊, x); w)
-		else
-			robs = [ρ(x[:, (Zygote.ignore(◊.ϕ.I) .+ (_t - 1))], Zygote.ignore(◊.ϕ)) for _t in Zygote.ignore(◊.I)]
-			return smoothmax(robs)
+		T = size(x, 2)
+		_I = get_interval(◊, x)
+		_sm = (a, b) -> smoothmax(a, b; w=w)
+		return mapreduce(_sm, _I) do _t #TODO: This hits the global w=W instead of local w via kwargs
+			ρ(view(x, :, _t:T), ◊.ϕ)
 		end
 	end
 end
