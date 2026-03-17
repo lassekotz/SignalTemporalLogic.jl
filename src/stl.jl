@@ -210,8 +210,8 @@ $$\rho(x_t, \neg\phi) = -\rho(x_t, \phi)$$
 
 # ╔═╡ 9e477ba3-9e0e-42ae-9fe2-97adc7ae8faa
 begin
-	mutable struct Negation <: Formula
-		ϕ_inner::Formula
+	mutable struct Negation{F} <: Formula
+		ϕ_inner::F
 	end
 
 	(ϕ::Negation)(x) = .¬ϕ.ϕ_inner(x)
@@ -740,6 +740,7 @@ function parse_formula(ex)
         end
     end
 end
+
 
 # ╔═╡ 97adec7a-75fd-40b1-9e46-e302c1dd6b9e
 macro formula(ex)
