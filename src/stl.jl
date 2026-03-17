@@ -144,7 +144,7 @@ md"""
 
 # ╔═╡ f3813cc2-af90-4710-9afb-e56a3b568338
 begin
-	Base.@kwdef mutable struct AtomicFunction <: Formula
+	Base.@kwdef struct AtomicFunction <: Formula
 		f::Function # ℝⁿ → 𝔹
 		ρ_max = Inf
 	end
@@ -166,7 +166,7 @@ $$\rho(x_t, \mu_c) =  \mu(x_t) - c \qquad (\text{when}\; \mu(x_t) > c)$$
 
 # ╔═╡ 1ec0bddb-28d8-420b-856d-2c1ed70a77a4
 begin
-	mutable struct Predicate{F, C} <: Formula
+	struct Predicate{F, C} <: Formula
 		μ::F # ℝⁿ → ℝ
 		c::C# Union{Real, Vector}
 	end
@@ -186,7 +186,7 @@ $$\rho(x_t, \mu_c) =  c - \mu(x_t) \qquad (\text{when}\; \mu(x_t) < c)$$
 
 # ╔═╡ 3ed8b19e-6518-40b6-9320-3ab01d03f8f6
 begin
-	mutable struct FlippedPredicate{F<:Function, C<:Union{Real, Vector}} <: Formula
+	struct FlippedPredicate{F<:Function, C<:Union{Real, Vector}} <: Formula
 		μ::F#Function # ℝⁿ → ℝ
 		c::C#Union{Real, Vector}
 	end
@@ -210,7 +210,7 @@ $$\rho(x_t, \neg\phi) = -\rho(x_t, \phi)$$
 
 # ╔═╡ 9e477ba3-9e0e-42ae-9fe2-97adc7ae8faa
 begin
-	mutable struct Negation{F} <: Formula
+	struct Negation{F} <: Formula
 		ϕ_inner::F
 	end
 
@@ -333,7 +333,7 @@ smoothmin(x1, x2; w=W) = smoothmin([x1,x2]; w=w)
 
 # ╔═╡ c93b2ad2-1b5c-490e-b7fc-9fc0495fe6fa
 begin
-	mutable struct Conjunction <: Formula
+	struct Conjunction <: Formula
 		ϕ::Formula
 		ψ::Formula
 	end
@@ -346,7 +346,7 @@ end
 
 # ╔═╡ 967af87a-d0d7-42ea-871d-492d9406f9c6
 begin
-	mutable struct Always{F<:Formula, I<:Interval} <: Formula
+	struct Always{F<:Formula, I<:Interval} <: Formula
 		ϕ::F#Formula
 		I::I#Interval
 	end
@@ -413,7 +413,7 @@ smoothmax(x1, x2; w=W) = smoothmax([x1,x2]; w=w)
 
 # ╔═╡ e4df40fb-dc10-421c-9cab-39ebfc73b320
 begin
-	mutable struct Disjunction <: Formula
+	struct Disjunction <: Formula
 		ϕ::Formula
 		ψ::Formula
 	end
@@ -428,7 +428,7 @@ begin
 end
 # ╔═╡ b0b10df8-07f0-4317-8f3a-3620a3cb8e8e
 begin
-	mutable struct Implication <: Formula
+	struct Implication <: Formula
 		ϕ::Formula
 		ψ::Formula
 	end
@@ -441,7 +441,7 @@ end
 
 # ╔═╡ f1f170a8-2902-41f7-8c21-99c90d752459
 begin
-	mutable struct Biconditional <: Formula
+	struct Biconditional <: Formula
 		ϕ::Formula
 		ψ::Formula
 	end
@@ -456,7 +456,7 @@ end
 
 # ╔═╡ d2e95e25-f1df-4807-bc41-fb7ebb7a3d55
 begin
-	mutable struct Eventually{F<:Formula, I<:Interval} <: Formula
+	struct Eventually{F<:Formula, I<:Interval} <: Formula
 		ϕ::F
 		I::I
 	end
@@ -499,7 +499,7 @@ end
 
 # ╔═╡ b12507a8-1a50-4e88-9271-1fa5413c93a8
 begin
-	mutable struct Until <: Formula
+	struct Until <: Formula
 		ϕ::Formula
 		ψ::Formula
 		I::Interval
