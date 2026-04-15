@@ -216,7 +216,7 @@ begin
 
 	(ϕ::Negation)(x) = .¬ϕ.ϕ_inner(x)
 	ρ(xₜ, ϕ::Negation) = -ρ(xₜ, ϕ.ϕ_inner)
-	ρ̃(xₜ, ϕ::Negation; kwargs...) = -ρ̃(xₜ, ϕ.ϕ_inner; kwargs...)
+	ρ̃(xₜ, ϕ::Negation, w=W; kwargs...) = -ρ̃(xₜ, ϕ.ϕ_inner, w=W; kwargs...)
 end
 
 # ╔═╡ 94cb97f7-ddc0-4ab3-bf90-9e38d2a19de0
@@ -326,10 +326,10 @@ function _smoothmin(x, w; stable=false)
 end
 
 # ╔═╡ 8c9c3777-30f9-4de2-b80d-cc05aaf21ea5
-smoothmin(x; w=W) = w == 0 ?  minimum(x) : _smoothmin(x, w)
+smoothmin(x::AbstractVector, w=W) = w == 0 ?  minimum(x) : _smoothmin(x, w)
 
 # ╔═╡ f7c4d4a1-c3f4-4196-8a92-50294480555c
-smoothmin(x1, x2; w=W) = smoothmin([x1,x2]; w=w)
+smoothmin(x1::Real, x2::Real, w=W) = smoothmin([x1, x2], w)
 
 # ╔═╡ c93b2ad2-1b5c-490e-b7fc-9fc0495fe6fa
 begin
@@ -341,7 +341,7 @@ begin
 	(q::Conjunction)(x) = all(q.ϕ(x) .∧ q.ψ(x))
 
 	ρ(xₜ, q::Conjunction) = min.(ρ(xₜ, q.ϕ), ρ(xₜ, q.ψ))
-	ρ̃(xₜ, q::Conjunction; w=W) = smoothmin.(ρ̃(xₜ, q.ϕ), ρ̃(xₜ, q.ψ); w)
+	ρ̃(xₜ, q::Conjunction, w=W) = smoothmin.(ρ̃(xₜ, q.ϕ), ρ̃(xₜ, q.ψ), w)
 end
 
 # ╔═╡ 967af87a-d0d7-42ea-871d-492d9406f9c6
@@ -353,7 +353,7 @@ begin
 
 	#(□::Always)(x) = all(□.ϕ(x[t]) for t ∈ get_interval(□, x))
 	#ρ(x, □::Always) = minimum(ρ(x[t′], □.ϕ) for t′ ∈ get_interval(□, x))
-	ρ̃(x, □::Always; w=W) = smoothmin(ρ̃(x[t′], □.ϕ; w) for t′ ∈ get_interval(□, x); w)
+	ρ̃(x, □::Always, w=W) = smoothmin([ρ̃(x[t′], □.ϕ, w) for t′ ∈ get_interval(□, x)], w)
 
 	function (□::Always)(x::AbstractMatrix)	
 		T = size(x, 2)
@@ -376,10 +376,10 @@ begin
 		end
 	end
 	
-	function ρ̃(x::AbstractMatrix, □::Always; w=W)
+	function ρ̃(x::AbstractMatrix, □::Always, w=W)
 		T = size(x, 2)
 		_I = get_interval(□, x)
-		_sm = (a, b) -> smoothmin(a, b; w=w)
+		_sm = (a, b) -> smoothmin(a, b, w)
 		return mapreduce(_sm, _I) do _t
 			ρ(view(x, :, _t:T), □.ϕ)
 		end
@@ -406,10 +406,10 @@ function _smoothmax(x, w; stable=false)
 end
 
 # ╔═╡ 0bbd170b-ef3d-4a4a-99f7-df6cfd16dcc6
-smoothmax(x; w=W) = w == 0 ? maximum(x) : _smoothmax(x, w)
+smoothmax(x::AbstractVector, w=W) = w == 0 ? maximum(x) : _smoothmax(x, w)
 
 # ╔═╡ e5e59d1d-f6ec-4bde-90fe-4715b15239a2
-smoothmax(x1, x2; w=W) = smoothmax([x1,x2]; w=w)
+smoothmax(x1::Real, x2::Real, w=W) = smoothmax([x1,x2], w)
 
 # ╔═╡ e4df40fb-dc10-421c-9cab-39ebfc73b320
 begin
@@ -424,7 +424,7 @@ begin
 	(q::Disjunction)(x::AbstractMatrix) = q.ϕ(x) ∨ q.ψ(x)
 	ρ(x, q::Disjunction) = max(ρ(x, q.ϕ), ρ(x, q.ψ))
 	
-	ρ̃(xₜ, q::Disjunction; w=W) = smoothmax.(ρ̃(xₜ, q.ϕ; w), ρ̃(xₜ, q.ψ; w); w)
+	ρ̃(xₜ, q::Disjunction, w=W) = smoothmax.(ρ̃(xₜ, q.ϕ, w), ρ̃(xₜ, q.ψ, w), w)
 end
 # ╔═╡ b0b10df8-07f0-4317-8f3a-3620a3cb8e8e
 begin
@@ -436,7 +436,7 @@ begin
 	(q::Implication)(x) = q.ϕ(x) .⟹ q.ψ(x)
 
 	ρ(xₜ, q::Implication) = max.(-ρ(xₜ, q.ϕ), ρ(xₜ, q.ψ))
-	ρ̃(xₜ, q::Implication; w=W) = smoothmax.(-ρ̃(xₜ, q.ϕ; w), ρ̃(xₜ, q.ψ; w); w)
+	ρ̃(xₜ, q::Implication, w=W) = smoothmax.(-ρ̃(xₜ, q.ϕ, w), ρ̃(xₜ, q.ψ, w), w)
 end
 
 # ╔═╡ f1f170a8-2902-41f7-8c21-99c90d752459
@@ -450,8 +450,8 @@ begin
 
 	ρ(xₜ, q::Biconditional) =
 		ρ(xₜ, Conjunction(Implication(q.ϕ, q.ψ), Implication(q.ψ, q.ϕ)))
-	ρ̃(xₜ, q::Biconditional; w=W) =
-		ρ̃(xₜ, Conjunction(Implication(q.ϕ, q.ψ), Implication(q.ψ, q.ϕ)); w)
+	ρ̃(xₜ, q::Biconditional, w=W) =
+		ρ̃(xₜ, Conjunction(Implication(q.ϕ, q.ψ), Implication(q.ψ, q.ϕ)), w)
 end
 
 # ╔═╡ d2e95e25-f1df-4807-bc41-fb7ebb7a3d55
@@ -463,7 +463,7 @@ begin
 
 	#(◊::Eventually)(x) = any(◊.ϕ(x[t]) for t ∈ get_interval(◊, x))
 	#ρ(x, ◊::Eventually) = maximum(ρ(x[t′], ◊.ϕ) for t′ ∈ get_interval(◊, x))
-	ρ̃(x, ◊::Eventually; w=W) = smoothmax(ρ̃(x[t′], ◊.ϕ; w) for t′∈get_interval(◊,x); w)
+	ρ̃(x, ◊::Eventually, w=W) = smoothmax([ρ̃(x[t′], ◊.ϕ, w) for t′∈get_interval(◊,x)], w)
 
 	
 	function (◊::Eventually)(x::AbstractMatrix)
@@ -487,10 +487,10 @@ begin
 		end
 	end
 	
-	function ρ̃(x::Matrix, ◊::Eventually; w=W)
+	function ρ̃(x::Matrix, ◊::Eventually, w=W)
 		T = size(x, 2)
 		_I = get_interval(◊, x)
-		_sm = (a, b) -> smoothmax(a, b; w=w)
+		_sm = (a, b) -> smoothmax(a, b, w)
 		return mapreduce(_sm, _I) do _t #TODO: This hits the global w=W instead of local w via kwargs
 			ρ(view(x, :, _t:T), ◊.ϕ)
 		end
@@ -532,7 +532,7 @@ begin
 end
 
 # ╔═╡ d57941cf-655b-45f8-b5e2-b39d3cfeb9fb
-robustness(xₜ, ϕ::Formula; w=0) = w == 0 ? ρ(xₜ, ϕ) : ρ̃(xₜ, ϕ; w)
+robustness(xₜ, ϕ::Formula, w=0) = w == 0 ? ρ(xₜ, ϕ) : ρ̃(xₜ, ϕ, w)
 
 # ╔═╡ 5c1e16b3-1b3c-4c7a-a484-44b935eaa2a9
 smooth_robustness = ρ̃
