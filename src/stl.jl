@@ -178,7 +178,6 @@ begin
 	ρ(x, ϕ::Predicate) = ϕ.μ(x[:, 1]) - ϕ.c
 	ρ̃(x, ϕ::Predicate; kwargs...) = ρ(x, ϕ)
 	
-	#ρ_vec(x, ϕ::Predicate) = [ϕ.μ(col) for col in eachcol(x)] .- ϕ.c
 	ρ_vec(x, ϕ::Predicate) = map(col -> ϕ.μ(col) - ϕ.c, eachcol(x))
 		
 end
@@ -569,25 +568,7 @@ begin
 		end
 		
 		return ρF
-	end
-	
-	function ρ_vec(x::AbstractMatrix, □::Always)
-		T = size(x, 2)
-		_I = get_interval(□, x)
-		a, b = _I[1], _I[end]
-		
-		rhos_children = ρ_vec(x, □.ϕ)
-		
-		ρG = fill(NaN, T)
-		
-		for _t in 1:(T - b + 1)
-			ρG[_t] = minimum(@view rhos_children[(_t+a-1):(_t+b-1)])
-		end
-		
-		return ρG
-	end
-	
-	
+	end	
 	
 end
 
