@@ -520,6 +520,8 @@ begin
 	
 	ρ̃(xₜ, q::Disjunction, w=W) = smoothmax.(ρ̃(xₜ, q.ϕ, w), ρ̃(xₜ, q.ψ, w), w)
 	ρ_vec(x, q::Disjunction) = max.(ρ_vec(x, q.ϕ), ρ_vec(x, q.ψ))
+	ρ̃_vec(x, q::Disjunction, w=W) = smoothmax.(ρ_vec(x, q.ϕ), ρ_vec(x, q.ψ), w)
+
 	
 end
 # ╔═╡ b0b10df8-07f0-4317-8f3a-3620a3cb8e8e
