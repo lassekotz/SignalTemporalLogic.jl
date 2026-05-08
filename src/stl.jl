@@ -228,7 +228,7 @@ begin
 	ρ̃(xₜ, ϕ::Negation, w=W; kwargs...) = -ρ̃(xₜ, ϕ.ϕ_inner, w=W; kwargs...)
 	
 	ρ_vec(x, ϕ::Negation) = -ρ_vec(x, ϕ.ϕ_inner)
-	ρ̃_vec(x, ϕ::Negation, w) = -ρ_vec(x, ϕ.ϕ_inner)
+	ρ̃_vec(x, ϕ::Negation, w=W; kwargs...) = -ρ_vec(x, ϕ.ϕ_inner, w=W; kwargs...)
 end
 
 # ╔═╡ 94cb97f7-ddc0-4ab3-bf90-9e38d2a19de0
