@@ -29,6 +29,8 @@ export
     Until,
     ρ,
     ρ̃,
+    ρ_vec,
+    ρ̃_vec,
     robustness,
     smooth_robustness,
     TemporalOperator,
