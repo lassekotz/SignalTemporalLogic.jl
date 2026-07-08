@@ -333,7 +333,15 @@ function _smoothmin(x, w; stable=false)
 		e = exp.(xw .- logsumexp(xw)) # used for numerical stability
 		return sum(x .* e) / sum(e)
 	else
-		return sum(xᵢ*exp(-xᵢ/w) for xᵢ in x) / sum(exp(-xⱼ/w) for xⱼ in x)
+		#s = zero(eltype(x))
+		#@inbounds for i in eachindex(x)
+		#	s += exp(-w * x[i])
+		#end
+		#return -log(s)/w
+		#
+		return -log(sum(exp.(-w*x)))/w
+		
+		#return sum(xᵢ*exp(-xᵢ/w) for xᵢ in x) / sum(exp(-xⱼ/w) for xⱼ in x)
 	end
 end
 
@@ -390,6 +398,7 @@ begin
 			ρ(view(x, :, _t:T), □.ϕ)
 		end
 	end
+	
 	# function ρ_vec(x::AbstractMatrix, □::Always)
 	# 	T = size(x, 2)
 	# 	_I = get_interval(□, x)
@@ -495,7 +504,14 @@ function _smoothmax(x, w; stable=false)
 		e = exp.(xw .- logsumexp(xw)) # used for numerical stability
 		return sum(x .* e) / sum(e)
 	else
-		return sum(xᵢ*exp(xᵢ/w) for xᵢ in x) / sum(exp(xⱼ/w) for xⱼ in x)
+		#s = zero(eltype(x))
+		#@inbounds for i in eachindex(x)
+		#	s += exp(w * x[i])
+		#end
+		#return log(s)/w
+		
+		return log(sum(exp.(w*x)))/w
+		#return sum(xᵢ*exp(xᵢ/w) for xᵢ in x) / sum(exp(xⱼ/w) for xⱼ in x)
 	end
 end
 
