@@ -456,24 +456,25 @@ begin
 		# end
 		
 		ρG = vcat(map(1:(T - b + 1)) do _t
-			minimum(@view rhos_children[(_t+a-1):(_t+b-1)])
+			_rhos_view = @view rhos_children[(_t+a-1):(_t+b-1)]
+			any(isnan, _rhos_view) ? NaN : minimum(_rhos_view)
 		end, fill(NaN, b - 1))
-		
+
 		return ρG
 	end
-	
+
 	function ρ̃_vec(x::AbstractMatrix, □::Always, w=W)
 		T = size(x, 2)
 		_I = get_interval(□, x)
 		a, b = _I[1], _I[end]
-				
+
 		rhos_children = ρ̃_vec(x, □.ϕ, w)
-		
+
 		ρG = vcat(map(1:(T - b + 1)) do _t
 			_rhos_view = @view rhos_children[(_t+a-1):(_t+b-1)]
-			smoothmin(_rhos_view, w)
+			any(isnan, _rhos_view) ? NaN : smoothmin(_rhos_view, w)
 		end, fill(NaN, b - 1))
-		
+
 		return ρG
 	end
 	
@@ -607,20 +608,11 @@ begin
 		
 		rhos_children = ρ_vec(x, ◊.ϕ)
 		
-#		ρF = fill(NaN, T)
-		
-		#ρF = similar(rhos_children)
-		
-		#ρF = [maximum(@view rhos_children[(_t+a-1):(_t+b-1)]) for _t in 1:(T-b+1)]
-		
 		ρF = vcat(map(1:(T - b + 1)) do _t
-			maximum(@view rhos_children[(_t+a-1):(_t+b-1)])
+			_rhos_view = @view rhos_children[(_t+a-1):(_t+b-1)]
+			any(isnan, _rhos_view) ? NaN : maximum(_rhos_view)
 		end, fill(NaN, b - 1))
-		
-		# for _t in 1:(T - b + 1)
-		# 	ρF[_t] = maximum(@view rhos_children[(_t+a-1):(_t+b-1)])
-		# end
-		
+
 		return ρF
 	end
 	
@@ -631,24 +623,14 @@ begin
 		
 		rhos_children = ρ̃_vec(x, ◊.ϕ, w)
 		
-#		ρF = fill(NaN, T)
-		
-		#ρF = similar(rhos_children)
-		
-		#ρF = [maximum(@view rhos_children[(_t+a-1):(_t+b-1)]) for _t in 1:(T-b+1)]
-		
 		ρF = vcat(map(1:(T - b + 1)) do _t
 			_rhos_view = @view rhos_children[(_t+a-1):(_t+b-1)]
-			smoothmax(_rhos_view, w)
+			any(isnan, _rhos_view) ? NaN : smoothmax(_rhos_view, w)
 		end, fill(NaN, b - 1))
-		
-		# for _t in 1:(T - b + 1)
-		# 	ρF[_t] = maximum(@view rhos_children[(_t+a-1):(_t+b-1)])
-		# end
-		
+
 		return ρF
 	end
-	
+
 end
 
 # ╔═╡ b12507a8-1a50-4e88-9271-1fa5413c93a8
