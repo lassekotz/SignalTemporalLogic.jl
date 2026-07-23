@@ -134,7 +134,7 @@ begin
 
 	(ϕ::Atomic)(x) = ϕ.value
 	ρ(xₜ, ϕ::Atomic) = ϕ.ρ_bound
-	ρ̃(xₜ, ϕ::Atomic; kwargs...) = ρ(xₜ, ϕ)
+	ρ̃(xₜ, ϕ::Atomic, w=W) = ρ(xₜ, ϕ)
 end
 
 # ╔═╡ 75b654ee-e8a8-4d70-bf9b-f8ddf20847a4
@@ -151,7 +151,7 @@ begin
 
 	(ϕ::AtomicFunction)(x) = map(xₜ->all(xₜ), ϕ.f(x))
 	ρ(xₜ, ϕ::AtomicFunction) = xₜ ? ϕ.ρ_max : -ϕ.ρ_max
-	ρ̃(xₜ, ϕ::AtomicFunction; kwargs...) = ρ(xₜ, ϕ)
+	ρ̃(xₜ, ϕ::AtomicFunction, w=W) = ρ(xₜ, ϕ)
 end
 
 # ╔═╡ 296c7321-db0d-4878-a4d9-6e2b6ee76e4e
@@ -176,10 +176,10 @@ begin
 	
 	(ϕ::Predicate)(x::AbstractMatrix) = ϕ.μ(x[:, 1]) > ϕ.c
 	ρ(x, ϕ::Predicate) = ϕ.μ(x[:, 1]) - ϕ.c
-	ρ̃(x, ϕ::Predicate; kwargs...) = ρ(x, ϕ)
-	
+	ρ̃(x, ϕ::Predicate, w=W) = ρ(x, ϕ)
+
 	ρ_vec(x, ϕ::Predicate) = map(col -> ϕ.μ(col) - ϕ.c, eachcol(x))
-	ρ̃_vec(x, ϕ::Predicate; kwargs...) = ρ_vec(x, ϕ)
+	ρ̃_vec(x, ϕ::Predicate, w=W) = ρ_vec(x, ϕ)
 
 end
 
@@ -201,10 +201,10 @@ begin
 	
 	(ϕ::FlippedPredicate)(x::AbstractMatrix) = ϕ.μ(x[:, 1]) < ϕ.c
 	ρ(x, ϕ::FlippedPredicate) = -(ϕ.μ(x[:, 1]) - ϕ.c)
-	ρ̃(x, ϕ::FlippedPredicate; kwargs...) = ρ(x, ϕ)
-	
+	ρ̃(x, ϕ::FlippedPredicate, w=W) = ρ(x, ϕ)
+
 	ρ_vec(x, ϕ::FlippedPredicate) = map(col -> -(ϕ.μ(col) - ϕ.c), eachcol(x))
-	ρ̃_vec(x, ϕ::FlippedPredicate; kwargs...) = ρ(x, ϕ)
+	ρ̃_vec(x, ϕ::FlippedPredicate, w=W) = ρ_vec(x, ϕ)
 end
 
 # ╔═╡ 00189191-c0ec-41c2-85f0-f362c4b8bb69
@@ -225,10 +225,10 @@ begin
 
 	(ϕ::Negation)(x) = .¬ϕ.ϕ_inner(x)
 	ρ(xₜ, ϕ::Negation) = -ρ(xₜ, ϕ.ϕ_inner)
-	ρ̃(xₜ, ϕ::Negation, w=W; kwargs...) = -ρ̃(xₜ, ϕ.ϕ_inner, w=W; kwargs...)
-	
+	ρ̃(xₜ, ϕ::Negation, w=W) = -ρ̃(xₜ, ϕ.ϕ_inner, w)
+
 	ρ_vec(x, ϕ::Negation) = -ρ_vec(x, ϕ.ϕ_inner)
-	ρ̃_vec(x, ϕ::Negation, w=W; kwargs...) = -ρ_vec(x, ϕ.ϕ_inner, w=W; kwargs...)
+	ρ̃_vec(x, ϕ::Negation, w=W) = -ρ̃_vec(x, ϕ.ϕ_inner, w)
 end
 
 # ╔═╡ 94cb97f7-ddc0-4ab3-bf90-9e38d2a19de0
@@ -282,7 +282,8 @@ $$\rho(x_t, \lozenge_{[a,b]}\phi) = \max_{t^\prime \in [t+a,t+b]} \rho(x_{t^\pri
 """
 
 # ╔═╡ baed163f-b9f6-4c34-9432-529c683ae43e
-get_interval(ϕ::Formula, x) = ismissing(ϕ.I) ? (1:length(x)) : ϕ.I
+#get_interval(ϕ::Formula, x) = ismissing(ϕ.I) ? (1:length(x)) : ϕ.I
+get_interval(ϕ::Formula, x) = ismissing(ϕ.I) ? (1:size(x, 2)) : ϕ.I
 
 # ╔═╡ 15870045-7238-4e75-9aea-3d6824e21bbe
 md"""
@@ -361,10 +362,10 @@ begin
 	(q::Conjunction)(x) = all(q.ϕ(x) .∧ q.ψ(x))
 
 	ρ(xₜ, q::Conjunction) = min.(ρ(xₜ, q.ϕ), ρ(xₜ, q.ψ))
-	ρ̃(xₜ, q::Conjunction, w=W) = smoothmin.(ρ̃(xₜ, q.ϕ), ρ̃(xₜ, q.ψ), w)
+	ρ̃(xₜ, q::Conjunction, w=W) = smoothmin.(ρ̃(xₜ, q.ϕ, w), ρ̃(xₜ, q.ψ, w), w)
 		
 	ρ_vec(x, q::Conjunction) = min.(ρ_vec(x, q.ϕ), ρ_vec(x, q.ψ))
-	ρ̃_vec(x, q::Conjunction, w=W) = smoothmin.(ρ_vec(x, q.ϕ), ρ_vec(x, q.ψ), w)
+	ρ̃_vec(x, q::Conjunction, w=W) = smoothmin.(ρ̃_vec(x, q.ϕ, w), ρ̃_vec(x, q.ψ, w), w)
 end
 
 # ╔═╡ 967af87a-d0d7-42ea-871d-492d9406f9c6
@@ -421,7 +422,7 @@ begin
 		_I = get_interval(□, x)
 		_sm = (a, b) -> smoothmin(a, b, w)
 		return mapreduce(_sm, _I) do _t
-			ρ(view(x, :, _t:T), □.ϕ)
+			ρ̃(view(x, :, _t:T), □.ϕ, w)
 		end
 	end
 	
@@ -536,7 +537,7 @@ begin
 	
 	ρ̃(xₜ, q::Disjunction, w=W) = smoothmax.(ρ̃(xₜ, q.ϕ, w), ρ̃(xₜ, q.ψ, w), w)
 	ρ_vec(x, q::Disjunction) = max.(ρ_vec(x, q.ϕ), ρ_vec(x, q.ψ))
-	ρ̃_vec(x, q::Disjunction, w=W) = smoothmax.(ρ_vec(x, q.ϕ), ρ_vec(x, q.ψ), w)
+	ρ̃_vec(x, q::Disjunction, w=W) = smoothmax.(ρ̃_vec(x, q.ϕ, w), ρ̃_vec(x, q.ψ, w), w)
 
 	
 end
@@ -606,7 +607,7 @@ begin
 		_I = get_interval(◊, x)
 		_sm = (a, b) -> smoothmax(a, b, w)
 		return mapreduce(_sm, _I) do _t
-			ρ(view(x, :, _t:T), ◊.ϕ)
+			ρ̃(view(x, :, _t:T), ◊.ϕ, w)
 		end
 	end
 	
@@ -684,14 +685,14 @@ begin
 		end)
 	end
 	
-	function ρ̃(x, 𝒰::Until; w=W)
+	function ρ̃(x, 𝒰::Until, w=W)
 		ϕ, ψ, I = 𝒰.ϕ, 𝒰.ψ, get_interval(𝒰, x)
 		return smoothmax(map(I) do t′
-			ρ̃1 = ρ̃(x[t′], ψ; w)
-			ρ̃2_trace = [ρ̃(x[t′′], ϕ; w) for t′′ ∈ 1:t′-1]
-			ρ̃2 = isempty(ρ̃2_trace) ? 10e100 : smoothmin(ρ̃2_trace; w)
-			smoothmin([ρ̃1, ρ̃2]; w)
-		end; w)
+			ρ̃1 = ρ̃(x[t′], ψ, w)
+			ρ̃2_trace = [ρ̃(x[t′′], ϕ, w) for t′′ ∈ 1:t′-1]
+			ρ̃2 = isempty(ρ̃2_trace) ? 10e100 : smoothmin(ρ̃2_trace, w)
+			smoothmin([ρ̃1, ρ̃2], w)
+		end, w)
 	end
 end
 
@@ -713,7 +714,7 @@ md"""
 ∇ρ(x, ϕ) = first(jacobian(x->ρ(x, ϕ), x))
 
 # ╔═╡ f5b37004-f30b-4a59-8aab-ecc775e856b3
-∇ρ̃(x, ϕ; kwargs...) = first(jacobian(x->ρ̃(x, ϕ; kwargs...), x))
+∇ρ̃(x, ϕ, w=W) = first(jacobian(x->ρ̃(x, ϕ, w), x))
 
 # ╔═╡ 067dadb1-1312-4035-930c-65b1068f7013
 md"""
