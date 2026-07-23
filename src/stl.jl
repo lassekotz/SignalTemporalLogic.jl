@@ -601,7 +601,7 @@ begin
 		end
 	end
 	
-	function ρ̃(x::Matrix, ◊::Eventually, w=W)
+	function ρ̃(x::AbstractMatrix, ◊::Eventually, w=W)
 		T = size(x, 2)
 		_I = get_interval(◊, x)
 		_sm = (a, b) -> smoothmax(a, b, w)
