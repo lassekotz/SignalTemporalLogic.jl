@@ -466,24 +466,13 @@ begin
 		T = size(x, 2)
 		_I = get_interval(□, x)
 		a, b = _I[1], _I[end]
-		
+				
 		rhos_children = ρ̃_vec(x, □.ϕ, w)
 		
-		#ρG = fill(NaN, T)
-		
-		#for _t in 1:(T - b + 1)
-		#	ρG[_t] = smoothmin(rhos_children[(_t+a-1):(_t+b-1)], w)
-		#end
-		ρG = [smoothmin(@view(rhos_children[(_t+a-1):(_t+b-1)]), w) for _t in 1:(T-b+1)]
-		
-		# ρG = map(1:(T - b + 1)) do _t
-		# 	minimum(@view rhos_children[(_t+a-1):(_t+b-1)])
-		# end
-		
-		# ρG = map(1:(T - b + 1)) do _t
-		# 	rhos_view = @view rhos_children[(_t+a-1):(_t+b-1)]
-		# 	return smoothmin(rhos_view, w)
-		# end
+		ρG = vcat(map(1:(T - b + 1)) do _t
+			_rhos_view = @view rhos_children[(_t+a-1):(_t+b-1)]
+			smoothmin(_rhos_view, w)
+		end, fill(NaN, b - 1))
 		
 		return ρG
 	end
