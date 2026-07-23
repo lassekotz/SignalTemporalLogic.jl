@@ -285,6 +285,9 @@ $$\rho(x_t, \lozenge_{[a,b]}\phi) = \max_{t^\prime \in [t+a,t+b]} \rho(x_{t^\pri
 #get_interval(ϕ::Formula, x) = ismissing(ϕ.I) ? (1:length(x)) : ϕ.I
 get_interval(ϕ::Formula, x) = ismissing(ϕ.I) ? (1:size(x, 2)) : ϕ.I
 
+# length of the leading non-NaN run of a ρ_vec/ρ̃_vec result (NaN always trails contiguously)
+valid_length(v) = something(findfirst(isnan, v), length(v) + 1) - 1
+
 # ╔═╡ 15870045-7238-4e75-9aea-3d6824e21bbe
 md"""
 ## Always
@@ -364,8 +367,17 @@ begin
 	ρ(xₜ, q::Conjunction) = min.(ρ(xₜ, q.ϕ), ρ(xₜ, q.ψ))
 	ρ̃(xₜ, q::Conjunction, w=W) = smoothmin.(ρ̃(xₜ, q.ϕ, w), ρ̃(xₜ, q.ψ, w), w)
 		
-	ρ_vec(x, q::Conjunction) = min.(ρ_vec(x, q.ϕ), ρ_vec(x, q.ψ))
-	ρ̃_vec(x, q::Conjunction, w=W) = smoothmin.(ρ̃_vec(x, q.ϕ, w), ρ̃_vec(x, q.ψ, w), w)
+	function ρ_vec(x, q::Conjunction)
+		a, b = ρ_vec(x, q.ϕ), ρ_vec(x, q.ψ)
+		n_valid = min(valid_length(a), valid_length(b))
+		return vcat(map(min, @view(a[1:n_valid]), @view(b[1:n_valid])), fill(NaN, length(a) - n_valid))
+	end
+
+	function ρ̃_vec(x, q::Conjunction, w=W)
+		a, b = ρ̃_vec(x, q.ϕ, w), ρ̃_vec(x, q.ψ, w)
+		n_valid = min(valid_length(a), valid_length(b))
+		return vcat(map((ai, bi) -> smoothmin(ai, bi, w), @view(a[1:n_valid]), @view(b[1:n_valid])), fill(NaN, length(a) - n_valid))
+	end
 end
 
 # ╔═╡ 967af87a-d0d7-42ea-871d-492d9406f9c6
@@ -442,23 +454,13 @@ begin
 		T = size(x, 2)
 		_I = get_interval(□, x)
 		a, b = _I[1], _I[end]
-		
+
 		rhos_children = ρ_vec(x, □.ϕ)
-		
-		# ρG = fill(NaN, T)
-		
-		# for _t in 1:(T - b + 1)
-		# 	ρG[_t] = minimum(@view rhos_children[(_t+a-1):(_t+b-1)])
-		# end
-		
-		# ρG = map(1:(T - b + 1)) do _t
-		# 	minimum(@view rhos_children[(_t+a-1):(_t+b-1)])
-		# end
-		
-		ρG = vcat(map(1:(T - b + 1)) do _t
-			_rhos_view = @view rhos_children[(_t+a-1):(_t+b-1)]
-			any(isnan, _rhos_view) ? NaN : minimum(_rhos_view)
-		end, fill(NaN, b - 1))
+		n_out = max(min(T - b + 1, valid_length(rhos_children) - b + 1), 0)
+
+		ρG = vcat(map(1:n_out) do _t
+			minimum(@view rhos_children[(_t+a-1):(_t+b-1)])
+		end, fill(NaN, T - n_out))
 
 		return ρG
 	end
@@ -469,11 +471,11 @@ begin
 		a, b = _I[1], _I[end]
 
 		rhos_children = ρ̃_vec(x, □.ϕ, w)
+		n_out = max(min(T - b + 1, valid_length(rhos_children) - b + 1), 0)
 
-		ρG = vcat(map(1:(T - b + 1)) do _t
-			_rhos_view = @view rhos_children[(_t+a-1):(_t+b-1)]
-			any(isnan, _rhos_view) ? NaN : smoothmin(_rhos_view, w)
-		end, fill(NaN, b - 1))
+		ρG = vcat(map(1:n_out) do _t
+			smoothmin(@view(rhos_children[(_t+a-1):(_t+b-1)]), w)
+		end, fill(NaN, T - n_out))
 
 		return ρG
 	end
@@ -526,10 +528,17 @@ begin
 	ρ(x, q::Disjunction) = max(ρ(x, q.ϕ), ρ(x, q.ψ))
 	
 	ρ̃(xₜ, q::Disjunction, w=W) = smoothmax.(ρ̃(xₜ, q.ϕ, w), ρ̃(xₜ, q.ψ, w), w)
-	ρ_vec(x, q::Disjunction) = max.(ρ_vec(x, q.ϕ), ρ_vec(x, q.ψ))
-	ρ̃_vec(x, q::Disjunction, w=W) = smoothmax.(ρ̃_vec(x, q.ϕ, w), ρ̃_vec(x, q.ψ, w), w)
+	function ρ_vec(x, q::Disjunction)
+		a, b = ρ_vec(x, q.ϕ), ρ_vec(x, q.ψ)
+		n_valid = min(valid_length(a), valid_length(b))
+		return vcat(map(max, @view(a[1:n_valid]), @view(b[1:n_valid])), fill(NaN, length(a) - n_valid))
+	end
 
-	
+	function ρ̃_vec(x, q::Disjunction, w=W)
+		a, b = ρ̃_vec(x, q.ϕ, w), ρ̃_vec(x, q.ψ, w)
+		n_valid = min(valid_length(a), valid_length(b))
+		return vcat(map((ai, bi) -> smoothmax(ai, bi, w), @view(a[1:n_valid]), @view(b[1:n_valid])), fill(NaN, length(a) - n_valid))
+	end
 end
 # ╔═╡ b0b10df8-07f0-4317-8f3a-3620a3cb8e8e
 begin
@@ -605,28 +614,28 @@ begin
 		T = size(x, 2)
 		_I = get_interval(◊, x)
 		a, b = _I[1], _I[end]
-		
+
 		rhos_children = ρ_vec(x, ◊.ϕ)
-		
-		ρF = vcat(map(1:(T - b + 1)) do _t
-			_rhos_view = @view rhos_children[(_t+a-1):(_t+b-1)]
-			any(isnan, _rhos_view) ? NaN : maximum(_rhos_view)
-		end, fill(NaN, b - 1))
+		n_out = max(min(T - b + 1, valid_length(rhos_children) - b + 1), 0)
+
+		ρF = vcat(map(1:n_out) do _t
+			maximum(@view rhos_children[(_t+a-1):(_t+b-1)])
+		end, fill(NaN, T - n_out))
 
 		return ρF
 	end
-	
-	function ρ̃_vec(x::Matrix, ◊::Eventually, w=W)
+
+	function ρ̃_vec(x::AbstractMatrix, ◊::Eventually, w=W)
 		T = size(x, 2)
 		_I = get_interval(◊, x)
 		a, b = _I[1], _I[end]
-		
+
 		rhos_children = ρ̃_vec(x, ◊.ϕ, w)
-		
-		ρF = vcat(map(1:(T - b + 1)) do _t
-			_rhos_view = @view rhos_children[(_t+a-1):(_t+b-1)]
-			any(isnan, _rhos_view) ? NaN : smoothmax(_rhos_view, w)
-		end, fill(NaN, b - 1))
+		n_out = max(min(T - b + 1, valid_length(rhos_children) - b + 1), 0)
+
+		ρF = vcat(map(1:n_out) do _t
+			smoothmax(@view(rhos_children[(_t+a-1):(_t+b-1)]), w)
+		end, fill(NaN, T - n_out))
 
 		return ρF
 	end
