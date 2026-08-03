@@ -36,7 +36,7 @@ md"""
 abstract type Formula end
 
 # ╔═╡ 331fa4f8-b02c-4c30-bcc5-4d09c9234f37
-const Interval = Union{UnitRange, Missing}
+const Interval = Union{UnitRange, Missing, Tuple{Real, Real}}
 
 # ╔═╡ bae83d07-50ec-4f03-bd84-36fc41fa44f0
 md"""
@@ -767,11 +767,16 @@ function split_interval(interval_ex)
 	return I
 end
 
+function split_interval(interval_ex::Tuple{Real, Real})
+	return interval_ex
+end
+
 # ╔═╡ 78f8ce9c-9563-4ea1-89fc-c5c65ce4bb29
 function split_temporal(temporal_ϕ)
 	if length(temporal_ϕ.args) == 3
 		interval_ex = temporal_ϕ.args[2]
-		I = split_interval(interval_ex)
+		#I = split_interval(interval_ex)
+		I = split_interval(eval(interval_ex))
 		ϕ_ex = temporal_ϕ.args[3]
 	else
 		I = missing
