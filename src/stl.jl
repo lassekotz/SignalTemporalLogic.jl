@@ -7,6 +7,11 @@ using InteractiveUtils
 # ╔═╡ 9adccf3d-1b74-4abb-87c4-cb066c65b3b6
 using Zygote
 
+struct Trace{X, T}
+	x::X
+	t::T
+end
+
 # ╔═╡ 8be19ab0-6d8c-11ec-0e32-fb14ef6c2970
 md"""
 # Signal Temporal Logic
@@ -179,6 +184,7 @@ begin
 	ρ̃(x, ϕ::Predicate, w=W) = ρ(x, ϕ)
 
 	ρ_vec(x, ϕ::Predicate) = map(col -> ϕ.μ(col) - ϕ.c, eachcol(x))
+	ρ_vec(x::Trace, ϕ::Predicate, ::Any) = map(col -> ϕ.μ(col) - ϕ.c, eachcol(x.x))
 	ρ̃_vec(x, ϕ::Predicate, w=W) = ρ_vec(x, ϕ)
 
 end
@@ -204,6 +210,7 @@ begin
 	ρ̃(x, ϕ::FlippedPredicate, w=W) = ρ(x, ϕ)
 
 	ρ_vec(x, ϕ::FlippedPredicate) = map(col -> -(ϕ.μ(col) - ϕ.c), eachcol(x))
+	ρ_vec(x::Trace, ϕ::FlippedPredicate, ::Any) = map(col -> -(ϕ.μ(col) - ϕ.c), eachcol(x.x))
 	ρ̃_vec(x, ϕ::FlippedPredicate, w=W) = ρ_vec(x, ϕ)
 end
 
@@ -228,6 +235,7 @@ begin
 	ρ̃(xₜ, ϕ::Negation, w=W) = -ρ̃(xₜ, ϕ.ϕ_inner, w)
 
 	ρ_vec(x, ϕ::Negation) = -ρ_vec(x, ϕ.ϕ_inner)
+	ρ_vec(x::Trace, ϕ::Negation, t_now) = -ρ_vec(x, ϕ.ϕ_inner, t_now)
 	ρ̃_vec(x, ϕ::Negation, w=W) = -ρ̃_vec(x, ϕ.ϕ_inner, w)
 end
 
@@ -372,6 +380,15 @@ begin
 		n_valid = min(valid_length(a), valid_length(b))
 		return vcat(map(min, @view(a[1:n_valid]), @view(b[1:n_valid])), fill(NaN, length(a) - n_valid))
 	end
+	
+	function ρ_vec(x::Trace, q::Conjunction, t_now::Real)
+		
+		a, b = ρ_vec(x, q.ϕ, t_now), ρ_vec(x, q.ψ, t_now)
+		n_valid = min(valid_length(a), valid_length(b))
+		return vcat(map(min, @view(a[1:n_valid]), @view(b[1:n_valid])), fill(NaN, length(a) - n_valid))
+
+		
+	end
 
 	function ρ̃_vec(x, q::Conjunction, w=W)
 		a, b = ρ̃_vec(x, q.ϕ, w), ρ̃_vec(x, q.ψ, w)
@@ -464,6 +481,21 @@ begin
 
 		return ρG
 	end
+	
+	
+	function ρ_vec(x::Trace, □::Always, t_now::Real)
+		I = resolve_interval(x, □, t_now)
+		a, b = I[1], I[end]
+		T = size(x.x, 2)
+
+		rhos_children = ρ_vec(x, □.ϕ, first(□.I))		
+		n_out = max(min(T - b + 1, valid_length(rhos_children) - b + 1), 0)
+		
+		ρG = vcat(map(1:n_out) do _t
+			minimum(rhos_children[(_t+a-1):(_t+b-1)])
+		end, fill(NaN, T - n_out))
+	end
+	
 
 	function ρ̃_vec(x::AbstractMatrix, □::Always, w=W)
 		T = size(x, 2)
@@ -533,7 +565,16 @@ begin
 		n_valid = min(valid_length(a), valid_length(b))
 		return vcat(map(max, @view(a[1:n_valid]), @view(b[1:n_valid])), fill(NaN, length(a) - n_valid))
 	end
+	
+	function ρ_vec(x::Trace, q::Disjunction, t_now::Real)
+		
+		a, b = ρ_vec(x, q.ϕ, t_now), ρ_vec(x, q.ψ, t_now)
+		n_valid = min(valid_length(a), valid_length(b))
+		return vcat(map(max, @view(a[1:n_valid]), @view(b[1:n_valid])), fill(NaN, length(a) - n_valid))
 
+		
+	end
+		
 	function ρ̃_vec(x, q::Disjunction, w=W)
 		a, b = ρ̃_vec(x, q.ϕ, w), ρ̃_vec(x, q.ψ, w)
 		n_valid = min(valid_length(a), valid_length(b))
@@ -630,6 +671,22 @@ begin
 		end, fill(NaN, T - n_out))
 
 		return ρF
+	end
+	
+	function ρ_vec(x::Trace, ◊::Eventually, t_now::Real)
+		I = resolve_interval(x, ◊, t_now)
+		a, b = I[1], I[end]
+		T = size(x.x, 2)
+		
+		
+		rhos_children = ρ_vec(x, ◊.ϕ, first(◊.I))
+		
+		n_out = max(min(T - b + 1, valid_length(rhos_children) - b + 1), 0)
+
+		ρF = vcat(map(1:n_out) do _t
+			maximum(rhos_children[(_t+a-1):(_t+b-1)])
+		end, fill(NaN, T - n_out))
+		
 	end
 
 	function ρ̃_vec(x::AbstractMatrix, ◊::Eventually, w=W)
