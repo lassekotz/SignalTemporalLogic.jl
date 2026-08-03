@@ -568,6 +568,13 @@ begin
 		ρ̃(xₜ, Conjunction(Implication(q.ϕ, q.ψ), Implication(q.ψ, q.ϕ)), w)
 end
 
+function resolve_interval(x::Trace, ϕ::Formula, t_now::Real)
+	a, b = first(ϕ.I), last(ϕ.I)
+	_a_idx, _b_idx = searchsortedfirst(x.t, t_now + a), searchsortedlast(x.t, t_now + b)
+	#subtimes = x.t[_a_idx:_b_idx]
+	return _a_idx:_b_idx
+end
+
 # ╔═╡ d2e95e25-f1df-4807-bc41-fb7ebb7a3d55
 begin
 	struct Eventually{F<:Formula, I<:Interval} <: Formula
