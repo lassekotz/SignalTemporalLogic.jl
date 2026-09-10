@@ -485,15 +485,29 @@ begin
 	
 	function ρ_vec(x::Trace, □::Always, t_now::Real)
 		I = resolve_interval(x, □, t_now)
-		a, b = I[1], I[end]
+		a, b = first(I), last(I)
 		T = size(x.x, 2)
 
-		rhos_children = ρ_vec(x, □.ϕ, first(□.I))		
-		n_out = max(min(T - b + 1, valid_length(rhos_children) - b + 1), 0)
-		
+		# Evaluate child at the trace's first sample so its robustness series
+		# is aligned to sample indices (entry j ⇔ current time x.t[j]); `first(□.I)`
+		# is an interval bound, not a time.
+		rhos_children = ρ_vec(x, □.ϕ, first(x.t))
+		vl = valid_length(rhos_children)
+
+		# Output step _t is produced while its nominal window [_t+a-1, _t+b-1] ends
+		# within the trace (index ≤ T) and starts within the child's valid prefix.
+		# A window that fits the trace but reaches past that prefix — e.g. a nested
+		# temporal child that lost its own tail to look-ahead — is clamped to `vl`,
+		# so the reduction runs over the observed robustness instead of dropping the
+		# step. NOTE: the window width is fixed at resolve-time; on a non-equidistant
+		# trace only entry [1] is a rigorous real-time window, later entries slide by
+		# sample index.
+		n_out = max(min(T - b + 1, vl - a + 1), 0)
+
 		ρG = vcat(map(1:n_out) do _t
-			minimum(rhos_children[(_t+a-1):(_t+b-1)])
+			minimum(@view rhos_children[(_t + a - 1):min(_t + b - 1, vl)])
 		end, fill(NaN, T - n_out))
+		return ρG
 	end
 	
 
@@ -675,18 +689,20 @@ begin
 	
 	function ρ_vec(x::Trace, ◊::Eventually, t_now::Real)
 		I = resolve_interval(x, ◊, t_now)
-		a, b = I[1], I[end]
+		a, b = first(I), last(I)
 		T = size(x.x, 2)
+		# See ρ_vec(::Trace, ::Always, ::Real) for the child-alignment and
+		# window-clamping rationale.
 		
+		rhos_children = ρ_vec(x, ◊.ϕ, first(x.t))
+		vl = valid_length(rhos_children) 
 		
-		rhos_children = ρ_vec(x, ◊.ϕ, first(◊.I))
+		n_out = max(min(T - b + 1, vl - a + 1), 0)
 		
-		n_out = max(min(T - b + 1, valid_length(rhos_children) - b + 1), 0)
-
 		ρF = vcat(map(1:n_out) do _t
-			maximum(rhos_children[(_t+a-1):(_t+b-1)])
+			maximum(@view rhos_children[(_t + a - 1):min(_t + b - 1, vl)])
 		end, fill(NaN, T - n_out))
-		
+		return ρF
 	end
 
 	function ρ̃_vec(x::AbstractMatrix, ◊::Eventually, w=W)
