@@ -176,11 +176,11 @@ begin
 		c::C# Union{Real, Vector}
 	end
 
-	#(ϕ::Predicate)(x) = map(xₜ->all(xₜ .> ϕ.c), ϕ.μ(x))
-	#ρ(x, ϕ::Predicate) = map(xₜ->xₜ - ϕ.c, ϕ.μ(x))
+	(ϕ::Predicate)(x::Union{Real, Vector}) = map(xₜ->all(xₜ .> ϕ.c), ϕ.μ(x))
+	ρ(x::Union{Real, Vector}, ϕ::Predicate) = map(xₜ->xₜ - ϕ.c, ϕ.μ(x))
 	
 	(ϕ::Predicate)(x::AbstractMatrix) = ϕ.μ(x[:, 1]) > ϕ.c
-	ρ(x, ϕ::Predicate) = ϕ.μ(x[:, 1]) - ϕ.c
+	ρ(x::AbstractMatrix, ϕ::Predicate) = ϕ.μ(x[:, 1]) - ϕ.c
 	ρ̃(x, ϕ::Predicate, w=W) = ρ(x, ϕ)
 
 	ρ_vec(x, ϕ::Predicate) = map(col -> ϕ.μ(col) - ϕ.c, eachcol(x))
@@ -202,12 +202,12 @@ begin
 		c::C#Union{Real, Vector}
 	end
 
-	#(ϕ::FlippedPredicate)(x) = map(xₜ->all(xₜ .< ϕ.c), ϕ.μ(x))
-	#ρ(x, ϕ::FlippedPredicate) = map(xₜ->ϕ.c - xₜ, ϕ.μ(x))
+	(ϕ::FlippedPredicate)(x::Union{Real, Vector}) = map(xₜ->all(xₜ .< ϕ.c), ϕ.μ(x))
+	ρ(x::Union{Real, Vector}, ϕ::FlippedPredicate) = map(xₜ->ϕ.c - xₜ, ϕ.μ(x))
 	
 	(ϕ::FlippedPredicate)(x::AbstractMatrix) = ϕ.μ(x[:, 1]) < ϕ.c
-	ρ(x, ϕ::FlippedPredicate) = -(ϕ.μ(x[:, 1]) - ϕ.c)
-	ρ̃(x, ϕ::FlippedPredicate, w=W) = ρ(x, ϕ)
+	ρ(x::AbstractMatrix, ϕ::FlippedPredicate) = -(ϕ.μ(x[:, 1]) - ϕ.c)
+	ρ̃(x::AbstractMatrix, ϕ::FlippedPredicate, w=W) = ρ(x, ϕ)
 
 	ρ_vec(x, ϕ::FlippedPredicate) = map(col -> -(ϕ.μ(col) - ϕ.c), eachcol(x))
 	ρ_vec(x::Trace, ϕ::FlippedPredicate, ::Any) = map(col -> -(ϕ.μ(col) - ϕ.c), eachcol(x.x))
@@ -404,8 +404,8 @@ begin
 		I::I#Interval
 	end
 
-	#(□::Always)(x) = all(□.ϕ(x[t]) for t ∈ get_interval(□, x))
-	#ρ(x, □::Always) = minimum(ρ(x[t′], □.ϕ) for t′ ∈ get_interval(□, x))
+	(□::Always)(x::Union{Real, Vector}) = all(□.ϕ(x[t]) for t ∈ get_interval(□, x))
+	ρ(x::Union{Real, Vector}, □::Always) = minimum(ρ(x[t′], □.ϕ) for t′ ∈ get_interval(□, x))
 	ρ̃(x, □::Always, w=W) = smoothmin([ρ̃(x[t′], □.ϕ, w) for t′ ∈ get_interval(□, x)], w)
 
 	function (□::Always)(x::AbstractMatrix)	
@@ -553,8 +553,8 @@ begin
 		ψ::Formula
 	end
 	
-	#(q::Disjunction)(x) = any(q.ϕ(x) .∨ q.ψ(x))
-	#ρ(xₜ, q::Disjunction) = max.(ρ(xₜ, q.ϕ), ρ(xₜ, q.ψ))
+	(q::Disjunction)(x::Union{Real, Vector}) = any(q.ϕ(x) .∨ q.ψ(x))
+	ρ(xₜ::Union{Real, Vector}, q::Disjunction) = max.(ρ(xₜ, q.ϕ), ρ(xₜ, q.ψ))
 	
 	(q::Disjunction)(x::AbstractMatrix) = q.ϕ(x) ∨ q.ψ(x)
 	ρ(x, q::Disjunction) = max(ρ(x, q.ϕ), ρ(x, q.ψ))
@@ -623,8 +623,8 @@ begin
 		I::I
 	end
 
-	#(◊::Eventually)(x) = any(◊.ϕ(x[t]) for t ∈ get_interval(◊, x))
-	#ρ(x, ◊::Eventually) = maximum(ρ(x[t′], ◊.ϕ) for t′ ∈ get_interval(◊, x))
+	(◊::Eventually)(x::Union{Real, Vector}) = any(◊.ϕ(x[t]) for t ∈ get_interval(◊, x))
+	ρ(x::Union{Real, Vector}, ◊::Eventually) = maximum(ρ(x[t′], ◊.ϕ) for t′ ∈ get_interval(◊, x))
 	ρ̃(x, ◊::Eventually, w=W) = smoothmax([ρ̃(x[t′], ◊.ϕ, w) for t′∈get_interval(◊,x)], w)
 
 	
