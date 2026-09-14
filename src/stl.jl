@@ -176,11 +176,11 @@ begin
 		c::C# Union{Real, Vector}
 	end
 
-	#(ϕ::Predicate)(x) = map(xₜ->all(xₜ .> ϕ.c), ϕ.μ(x))
-	#ρ(x, ϕ::Predicate) = map(xₜ->xₜ - ϕ.c, ϕ.μ(x))
+	(ϕ::Predicate)(x::Union{Real, Vector}) = map(xₜ->all(xₜ .> ϕ.c), ϕ.μ(x))
+	ρ(x::Union{Real, Vector}, ϕ::Predicate) = map(xₜ->xₜ - ϕ.c, ϕ.μ(x))
 	
 	(ϕ::Predicate)(x::AbstractMatrix) = ϕ.μ(x[:, 1]) > ϕ.c
-	ρ(x, ϕ::Predicate) = ϕ.μ(x[:, 1]) - ϕ.c
+	ρ(x::AbstractMatrix, ϕ::Predicate) = ϕ.μ(x[:, 1]) - ϕ.c
 	ρ̃(x, ϕ::Predicate, w=W) = ρ(x, ϕ)
 
 	ρ_vec(x, ϕ::Predicate) = map(col -> ϕ.μ(col) - ϕ.c, eachcol(x))
@@ -202,12 +202,12 @@ begin
 		c::C#Union{Real, Vector}
 	end
 
-	#(ϕ::FlippedPredicate)(x) = map(xₜ->all(xₜ .< ϕ.c), ϕ.μ(x))
-	#ρ(x, ϕ::FlippedPredicate) = map(xₜ->ϕ.c - xₜ, ϕ.μ(x))
+	(ϕ::FlippedPredicate)(x::Union{Real, Vector}) = map(xₜ->all(xₜ .< ϕ.c), ϕ.μ(x))
+	ρ(x::Union{Real, Vector}, ϕ::FlippedPredicate) = map(xₜ->ϕ.c - xₜ, ϕ.μ(x))
 	
 	(ϕ::FlippedPredicate)(x::AbstractMatrix) = ϕ.μ(x[:, 1]) < ϕ.c
-	ρ(x, ϕ::FlippedPredicate) = -(ϕ.μ(x[:, 1]) - ϕ.c)
-	ρ̃(x, ϕ::FlippedPredicate, w=W) = ρ(x, ϕ)
+	ρ(x::AbstractMatrix, ϕ::FlippedPredicate) = -(ϕ.μ(x[:, 1]) - ϕ.c)
+	ρ̃(x::AbstractMatrix, ϕ::FlippedPredicate, w=W) = ρ(x, ϕ)
 
 	ρ_vec(x, ϕ::FlippedPredicate) = map(col -> -(ϕ.μ(col) - ϕ.c), eachcol(x))
 	ρ_vec(x::Trace, ϕ::FlippedPredicate, ::Any) = map(col -> -(ϕ.μ(col) - ϕ.c), eachcol(x.x))
@@ -404,8 +404,8 @@ begin
 		I::I#Interval
 	end
 
-	#(□::Always)(x) = all(□.ϕ(x[t]) for t ∈ get_interval(□, x))
-	#ρ(x, □::Always) = minimum(ρ(x[t′], □.ϕ) for t′ ∈ get_interval(□, x))
+	(□::Always)(x::Union{Real, Vector}) = all(□.ϕ(x[t]) for t ∈ get_interval(□, x))
+	ρ(x::Union{Real, Vector}, □::Always) = minimum(ρ(x[t′], □.ϕ) for t′ ∈ get_interval(□, x))
 	ρ̃(x, □::Always, w=W) = smoothmin([ρ̃(x[t′], □.ϕ, w) for t′ ∈ get_interval(□, x)], w)
 
 	function (□::Always)(x::AbstractMatrix)	
@@ -485,15 +485,29 @@ begin
 	
 	function ρ_vec(x::Trace, □::Always, t_now::Real)
 		I = resolve_interval(x, □, t_now)
-		a, b = I[1], I[end]
+		a, b = first(I), last(I)
 		T = size(x.x, 2)
 
-		rhos_children = ρ_vec(x, □.ϕ, first(□.I))		
-		n_out = max(min(T - b + 1, valid_length(rhos_children) - b + 1), 0)
-		
+		# Evaluate child at the trace's first sample so its robustness series
+		# is aligned to sample indices (entry j ⇔ current time x.t[j]); `first(□.I)`
+		# is an interval bound, not a time.
+		rhos_children = ρ_vec(x, □.ϕ, first(x.t))
+		vl = valid_length(rhos_children)
+
+		# Output step _t is produced while its nominal window [_t+a-1, _t+b-1] ends
+		# within the trace (index ≤ T) and starts within the child's valid prefix.
+		# A window that fits the trace but reaches past that prefix — e.g. a nested
+		# temporal child that lost its own tail to look-ahead — is clamped to `vl`,
+		# so the reduction runs over the observed robustness instead of dropping the
+		# step. NOTE: the window width is fixed at resolve-time; on a non-equidistant
+		# trace only entry [1] is a rigorous real-time window, later entries slide by
+		# sample index.
+		n_out = max(min(T - b + 1, vl - a + 1), 0)
+
 		ρG = vcat(map(1:n_out) do _t
-			minimum(rhos_children[(_t+a-1):(_t+b-1)])
+			minimum(@view rhos_children[(_t + a - 1):min(_t + b - 1, vl)])
 		end, fill(NaN, T - n_out))
+		return ρG
 	end
 	
 
@@ -553,8 +567,8 @@ begin
 		ψ::Formula
 	end
 	
-	#(q::Disjunction)(x) = any(q.ϕ(x) .∨ q.ψ(x))
-	#ρ(xₜ, q::Disjunction) = max.(ρ(xₜ, q.ϕ), ρ(xₜ, q.ψ))
+	(q::Disjunction)(x::Union{Real, Vector}) = any(q.ϕ(x) .∨ q.ψ(x))
+	ρ(xₜ::Union{Real, Vector}, q::Disjunction) = max.(ρ(xₜ, q.ϕ), ρ(xₜ, q.ψ))
 	
 	(q::Disjunction)(x::AbstractMatrix) = q.ϕ(x) ∨ q.ψ(x)
 	ρ(x, q::Disjunction) = max(ρ(x, q.ϕ), ρ(x, q.ψ))
@@ -623,8 +637,8 @@ begin
 		I::I
 	end
 
-	#(◊::Eventually)(x) = any(◊.ϕ(x[t]) for t ∈ get_interval(◊, x))
-	#ρ(x, ◊::Eventually) = maximum(ρ(x[t′], ◊.ϕ) for t′ ∈ get_interval(◊, x))
+	(◊::Eventually)(x::Union{Real, Vector}) = any(◊.ϕ(x[t]) for t ∈ get_interval(◊, x))
+	ρ(x::Union{Real, Vector}, ◊::Eventually) = maximum(ρ(x[t′], ◊.ϕ) for t′ ∈ get_interval(◊, x))
 	ρ̃(x, ◊::Eventually, w=W) = smoothmax([ρ̃(x[t′], ◊.ϕ, w) for t′∈get_interval(◊,x)], w)
 
 	
@@ -675,18 +689,20 @@ begin
 	
 	function ρ_vec(x::Trace, ◊::Eventually, t_now::Real)
 		I = resolve_interval(x, ◊, t_now)
-		a, b = I[1], I[end]
+		a, b = first(I), last(I)
 		T = size(x.x, 2)
+		# See ρ_vec(::Trace, ::Always, ::Real) for the child-alignment and
+		# window-clamping rationale.
 		
+		rhos_children = ρ_vec(x, ◊.ϕ, first(x.t))
+		vl = valid_length(rhos_children) 
 		
-		rhos_children = ρ_vec(x, ◊.ϕ, first(◊.I))
+		n_out = max(min(T - b + 1, vl - a + 1), 0)
 		
-		n_out = max(min(T - b + 1, valid_length(rhos_children) - b + 1), 0)
-
 		ρF = vcat(map(1:n_out) do _t
-			maximum(rhos_children[(_t+a-1):(_t+b-1)])
+			maximum(@view rhos_children[(_t + a - 1):min(_t + b - 1, vl)])
 		end, fill(NaN, T - n_out))
-		
+		return ρF
 	end
 
 	function ρ̃_vec(x::AbstractMatrix, ◊::Eventually, w=W)
