@@ -623,10 +623,11 @@ begin
 		ρ̃(xₜ, Conjunction(Implication(q.ϕ, q.ψ), Implication(q.ψ, q.ϕ)), w)
 end
 
-function resolve_interval(x::Trace, ϕ::Formula, t_now::Real)
+function resolve_interval(x::Trace, ϕ::Formula, t_now::Real) 
 	a, b = first(ϕ.I), last(ϕ.I)
 	_a_idx, _b_idx = searchsortedfirst(x.t, t_now + a), searchsortedlast(x.t, t_now + b)
 	#subtimes = x.t[_a_idx:_b_idx]
+	@assert _b_idx >= _a_idx "Resolved the interval $(_a_idx:_b_idx) but interval mustn't have negative length. This happens when no signal sample exists in the interval of ϕ ($(ϕ.I))."
 	return _a_idx:_b_idx
 end
 
