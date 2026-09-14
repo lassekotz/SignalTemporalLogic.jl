@@ -49,6 +49,8 @@ const MD_TRAJECTORIES = (
     parallel = [1.0 2 3 4 5 6;  0.0 1 2 3 4 5],        # gap 1,1,1,1,1,1
 )
 
+
+
 ################################################################################
 @testset "SignalTemporalLogic.jl" begin
 ################################################################################
@@ -146,6 +148,7 @@ end
 #===============================================================================
                              VECTOR SIGNALS
 ===============================================================================#
+
 @testset "Vector signals" begin
     x = xvec
 
@@ -740,7 +743,7 @@ nan_eq(a, b) = length(a) == length(b) &&
             @test ρ_vec(tr, dj, 0.0) == ρ_vec(X, dj)
         end
     end
-
+    
     @testset "resolve_interval maps real time → sample indices" begin
         tr = Trace(X, nonuniform)                       # [0, .5, 1.5, 2, 4, 9]
         @test resolve_interval(tr, (@formula □((0.0, 2.0), xₜ -> mu1(xₜ) > 0)), 0.0) == 1:4
@@ -834,11 +837,142 @@ nan_eq(a, b) = length(a) == length(b) &&
             end
         end
     end
-    @testset "ARCH-COMP24 sweep" begin
+end
+    
+    
+    
+    #---------------------------------------------------------------------------
+    # Tests on the ARCHCOMP benchmark specs.
+    #---------------------------------------------------------------------------
+@testset "ARCH-COMP24 sweep" begin
+    
+    
+    @testset "AT" begin
         
-        #TODO: Write tests...
+        τ1 = Trace(vcat(
+            #10 10 10 15 20 25 40 60 70 100 120;
+            #2000 2000 1500 1750 1500 2000 2250 2500 2750 3250 4000;
+            reduce(hcat, 10:0.5:109.5),
+            reduce(hcat, 2000:10:3990;),
+            #1 1 1 2 2 2 2 1 2 3 3
+            hcat(1*ones(1, 50), 2*ones(1, 50), 3*ones(1,50), 4*ones(1,50))
+        ),
+        #[0, 0.05, 0.101, 0.055, 3.99, 4, 4.05, 7.025, 9, 10, 15]
+        [0.0:0.05:9.95;]
+        )
         
+        
+        
+        @testset "AT1" begin
+            ϕ = @formula □((0, 20), x_t -> x_t[1] < 120)
+            
+            @test ρ_vec(τ1, ϕ, 0.0)[1] ≈ 10.5
+        end
+        @testset "AT2" begin
+            ϕ = @formula □((0, 10), x_t -> x_t[2] < 4750)
+            
+            @test ρ_vec(τ1, ϕ, 0.0)[1] ≈ 760
+        end
+        @testset "AT51" begin
+            g1 = @formula x_t -> (x_t[3] == 1) #TODO Specs over the discrete state require mapping the encoder state correctly to the true gears
+            ○g1 = @formula ◊((0.001, 0.1), g1) 
+            ○Gg1 = @formula □((0.0, 2.5), ○g1)
+            g1_add = @formula !g1 && ○g1
+            ϕ = @formula □((0.0, 30.0), (!g1_add || ○Gg1))
+            
+            @test ρ_vec(τ1, ϕ, 0.0)[1] ≈ 0
+        end
+        @testset "AT52" begin
+            g2 = @formula x_t -> (x_t[3] == 2)
+            ○g2 = @formula ◊((0.001, 0.1), g2) #TODO Specs over the discrete state require mapping the encoder state correctly to the true gears
+            ○Gg2 = @formula □((0.0, 2.5), ○g2)
+            g2_add = @formula !g2 && ○g2
+            ϕ = @formula □((0.0, 30.0), (!g2_add || ○Gg2))
+            
+            @test ρ_vec(τ1, ϕ, 0.0)[1] ≈ 0
+        end
+        @testset "AT53" begin
+            g3 = @formula x_t -> (x_t[3] == 3)
+            ○g3 = @formula ◊((0.001, 0.1), g3) #TODO Specs over the discrete state require mapping the encoder state correctly to the true gears
+            ○Gg3 = @formula □((0.0, 2.5), ○g3)
+            g3_add = @formula !g3 && ○g3
+            ϕ = @formula □((0.0, 30.0), (!g3_add || ○Gg3))
+            
+            @test ρ_vec(τ1, ϕ, 0.0)[1] ≈ 0
+        end
+        @testset "AT54" begin
+            g4 = @formula x_t -> (x_t[3] == 4)
+            ○g4 = @formula ◊((0.001, 0.1), g4) #TODO Specs over the discrete state require mapping the encoder state correctly to the true gears
+            ○Gg4 = @formula □((0.0, 2.5), ○g4)
+            g4_add = @formula !g4 && ○g4
+            ϕ = @formula □((0.0, 30.0), (!g4_add || ○Gg4))
+            
+            @test ρ_vec(τ1, ϕ, 0.0)[1] ≈ 0
+        end
+        @testset "AT6a" begin
+            ϕ1 = @formula □((0.0, 30.0), x_t -> (x_t[2] < 3000))
+            ϕ2 = @formula □((0.0, 4.0), x_t -> (x_t[1] < 35))
+            ϕ = @formula (!ϕ1 || ϕ2)
+            
+            @test ρ_vec(τ1, ϕ, 0.0)[1] ≈ 990
+        end
+        @testset "AT6b" begin
+            ϕ1 = @formula □((0.0, 30.0), x_t -> (x_t[2] < 3000))
+            ϕ2 = @formula □((0.0, 8.0), x_t -> (x_t[1] < 50))
+            ϕ = @formula (!ϕ1 || ϕ2) 
+            
+            @test ρ_vec(τ1, ϕ, 0.0)[1] ≈ 990
+        end
+        @testset "AT6c" begin
+            ϕ1 = @formula □((0.0, 30.0), x_t -> (x_t[2] < 3000))
+            ϕ2 = @formula □((0.0, 20.0), x_t -> (x_t[1] < 65))
+            ϕ = @formula (!ϕ1 || ϕ2) 
+            
+            @test ρ_vec(τ1, ϕ, 0.0)[1] ≈ 990
+        end
+        @testset "AT6abc" begin
+            ϕa1 = @formula □((0.0, 30.0), x_t -> (x_t[2] < 3000))
+            ϕa2 = @formula □((0.0, 4.0), x_t -> (x_t[1] < 35))
+            ϕa = @formula (!ϕa1 || ϕa2)
+            
+            ϕb1 = @formula □((0.0, 30.0), x_t -> (x_t[2] < 3000))
+            ϕb2 = @formula □((0.0, 8.0), x_t -> (x_t[1] < 50))
+            ϕb = @formula (!ϕb1 || ϕb2)
+            
+            ϕc1 = @formula □((0.0, 30.0), x_t -> (x_t[2] < 3000))
+            ϕc2 = @formula □((0.0, 20.0), x_t -> (x_t[1] < 65))
+            ϕc = @formula (!ϕc1 || ϕc2)
+            
+            ϕ = @formula ϕa && ϕb && ϕc
+            
+            @test ρ_vec(τ1, ϕ, 0.0)[1] ≈ 990
+        end
     end
+    
+    # @testset "AFC" begin
+        
+    # end
+    # @testset "CC" begin
+        
+    # end
+    # @testset "NN" begin
+        
+    # end
+    # @testset "PM" begin
+        
+    # end
+    # @testset "F16" begin
+        
+    # end
+    # @testset "SC" begin
+        
+    # end
+    
+    # #TODO: Write tests...
+    
+    
+        
+    #end
 end
 
 #===============================================================================
