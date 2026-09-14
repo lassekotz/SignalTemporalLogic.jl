@@ -483,30 +483,53 @@ begin
 	end
 	
 	
+	# Vectorised robustness of □ϕ over a `Trace`, one entry per sample from `t_now`.
+	# Entry k reduces (min) the child robustness over the real-time window
+	# [x.t[c] + lo, x.t[c] + hi] at sample c = k0 + k - 1, k0 = first sample ≥ t_now:
+	#
+	#  * entry 1 (the query time) is bounded-horizon — it reduces over whatever
+	#    part of its window was observed, so a wide-open interval collapses to the
+	#    rest of the trace instead of NaN;
+	#  * later entries are strict — the run stops (rest NaN) once a window would
+	#    need a sample past x.t[end], or once the child's valid prefix is spent;
+	#    both are monotone in k, so nothing later can recover;
+	#  * the window's far end is clamped to the child's valid prefix, so a nested
+	#    temporal child that lost its tail to look-ahead still yields a value;
+	#  * a window left empty by a *gap* in the sampling is not monotone (a later,
+	#    wider-spaced point may land back on data). A NaN-padded prefix cannot
+	#    express "valid, gap, valid", so if any entry past the first gap is
+	#    evaluable we assert rather than silently truncate.
 	function ρ_vec(x::Trace, □::Always, t_now::Real)
-		I = resolve_interval(x, □, t_now)
-		a, b = first(I), last(I)
-		T = size(x.x, 2)
-
-		# Evaluate child at the trace's first sample so its robustness series
-		# is aligned to sample indices (entry j ⇔ current time x.t[j]); `first(□.I)`
-		# is an interval bound, not a time.
-		rhos_children = ρ_vec(x, □.ϕ, first(x.t))
+		ts = x.t
+		T = length(ts)
+		lo, hi = first(□.I), last(□.I)
+		rhos_children = ρ_vec(x, □.ϕ, first(ts))     # child series, aligned to samples
 		vl = valid_length(rhos_children)
-
-		# Output step _t is produced while its nominal window [_t+a-1, _t+b-1] ends
-		# within the trace (index ≤ T) and starts within the child's valid prefix.
-		# A window that fits the trace but reaches past that prefix — e.g. a nested
-		# temporal child that lost its own tail to look-ahead — is clamped to `vl`,
-		# so the reduction runs over the observed robustness instead of dropping the
-		# step. NOTE: the window width is fixed at resolve-time; on a non-equidistant
-		# trace only entry [1] is a rigorous real-time window, later entries slide by
-		# sample index.
-		n_out = max(min(T - b + 1, vl - a + 1), 0)
-
-		ρG = vcat(map(1:n_out) do _t
-			minimum(@view rhos_children[(_t + a - 1):min(_t + b - 1, vl)])
-		end, fill(NaN, T - n_out))
+		t_end = float(last(ts))
+		tol = 1e-9 * max(1.0, abs(float(first(ts))), abs(t_end))  # window-edge fuzz
+		k0 = searchsortedfirst(ts, t_now)
+		gap_at = 0                                   # first entry a sampling gap left unevaluable
+		ρG = fill(NaN, T)
+		for k in 1:(T - k0 + 1)
+			c = k0 + k - 1
+			overhangs = ts[c] + hi > t_end + tol
+			w_a = searchsortedfirst(ts, ts[c] + lo - tol)
+			w_b = min(searchsortedlast(ts, ts[c] + hi + tol), vl)
+			if (overhangs && k > 1) || w_a > vl
+				break                                # monotone: nothing later can recover
+			elseif w_a > w_b
+				gap_at == 0 && (gap_at = k)          # no sample in this window
+				continue
+			end
+			@assert gap_at == 0 """
+				ρ_vec(::Trace, □) at t_now=$t_now: entry $gap_at \
+				(t=$(ts[k0 + gap_at - 1])) has no trace sample in its \
+				[t+$lo, t+$hi] window, yet entry $k (t=$(ts[c])) does — the result \
+				cannot be a contiguous NaN-padded prefix without silently dropping \
+				the gap. Resample the trace so every evaluation point in \
+				[$(ts[k0]), $(ts[c])] has a sample within [$lo, $hi] of it."""
+			ρG[k] = minimum(@view rhos_children[w_a:w_b])
+		end
 		return ρG
 	end
 	
@@ -688,21 +711,42 @@ begin
 		return ρF
 	end
 	
+	# Mirror of ρ_vec(::Trace, ::Always, ::Real) with max in place of min: entry k
+	# is the ◊ϕ robustness over the real-time window [x.t[c] + lo, x.t[c] + hi] at
+	# sample c = k0 + k - 1. See that method for the bounded-horizon entry 1, the
+	# strict/monotone stop conditions, the valid-prefix clamp, and the sampling-gap
+	# assertion.
 	function ρ_vec(x::Trace, ◊::Eventually, t_now::Real)
-		I = resolve_interval(x, ◊, t_now)
-		a, b = first(I), last(I)
-		T = size(x.x, 2)
-		# See ρ_vec(::Trace, ::Always, ::Real) for the child-alignment and
-		# window-clamping rationale.
-		
-		rhos_children = ρ_vec(x, ◊.ϕ, first(x.t))
-		vl = valid_length(rhos_children) 
-		
-		n_out = max(min(T - b + 1, vl - a + 1), 0)
-		
-		ρF = vcat(map(1:n_out) do _t
-			maximum(@view rhos_children[(_t + a - 1):min(_t + b - 1, vl)])
-		end, fill(NaN, T - n_out))
+		ts = x.t
+		T = length(ts)
+		lo, hi = first(◊.I), last(◊.I)
+		rhos_children = ρ_vec(x, ◊.ϕ, first(ts))     # child series, aligned to samples
+		vl = valid_length(rhos_children)
+		t_end = float(last(ts))
+		tol = 1e-9 * max(1.0, abs(float(first(ts))), abs(t_end))  # window-edge fuzz
+		k0 = searchsortedfirst(ts, t_now)
+		gap_at = 0                                   # first entry a sampling gap left unevaluable
+		ρF = fill(NaN, T)
+		for k in 1:(T - k0 + 1)
+			c = k0 + k - 1
+			overhangs = ts[c] + hi > t_end + tol
+			w_a = searchsortedfirst(ts, ts[c] + lo - tol)
+			w_b = min(searchsortedlast(ts, ts[c] + hi + tol), vl)
+			if (overhangs && k > 1) || w_a > vl
+				break                                # monotone: nothing later can recover
+			elseif w_a > w_b
+				gap_at == 0 && (gap_at = k)          # no sample in this window
+				continue
+			end
+			@assert gap_at == 0 """
+				ρ_vec(::Trace, ◊) at t_now=$t_now: entry $gap_at \
+				(t=$(ts[k0 + gap_at - 1])) has no trace sample in its \
+				[t+$lo, t+$hi] window, yet entry $k (t=$(ts[c])) does — the result \
+				cannot be a contiguous NaN-padded prefix without silently dropping \
+				the gap. Resample the trace so every evaluation point in \
+				[$(ts[k0]), $(ts[c])] has a sample within [$lo, $hi] of it."""
+			ρF[k] = maximum(@view rhos_children[w_a:w_b])
+		end
 		return ρF
 	end
 
@@ -731,8 +775,10 @@ begin
 		I::Interval
 	end
 
+	
 	function (𝒰::Until)(x)
 		ϕ, ψ, I = 𝒰.ϕ, 𝒰.ψ, get_interval(𝒰, x)
+		#! Isn't the order of ϕ and ψ reversed here if it is to be read as "ϕ until ψ". Errors on test row 452.
 		return any(ψ(x[i]) && all(ϕ(x[j]) for j ∈ I[1]:i-1) for i ∈ I)
 	end
 
@@ -943,7 +989,7 @@ function parse_formula(ex)
 					elseif formula_type == :<
 						μ, c = split_predicate(ex)
 						return :(FlippedPredicate($(esc(μ)), $c))
-					elseif formula_type ∈ [:⟺, :(==)]
+					elseif formula_type ∈ [:⟺, :(==)] #TODO: This doesn't necessarily play nicely with robust semantics (returns 0 if true).
 						μ, c = split_predicate(ex)
 						return :(Conjunction(Negation(Predicate($(esc(μ)), $c)), Negation(FlippedPredicate($(esc(μ)), $c))))
 					elseif formula_type == :(!=)
