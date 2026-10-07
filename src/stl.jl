@@ -509,7 +509,7 @@ begin
 		tol = 1e-9 * max(1.0, abs(float(first(ts))), abs(t_end))  # window-edge fuzz
 		k0 = searchsortedfirst(ts, t_now)
 		gap_at = 0                                   # first entry a sampling gap left unevaluable
-		ρG = fill(NaN, T)
+		ρG = fill(convert(float(eltype(rhos_children)), NaN), T)  # child eltype, so AD duals fit
 		for k in 1:(T - k0 + 1)
 			c = k0 + k - 1
 			overhangs = ts[c] + hi > t_end + tol
@@ -726,7 +726,7 @@ begin
 		tol = 1e-9 * max(1.0, abs(float(first(ts))), abs(t_end))  # window-edge fuzz
 		k0 = searchsortedfirst(ts, t_now)
 		gap_at = 0                                   # first entry a sampling gap left unevaluable
-		ρF = fill(NaN, T)
+		ρF = fill(convert(float(eltype(rhos_children)), NaN), T)  # child eltype, so AD duals fit
 		for k in 1:(T - k0 + 1)
 			c = k0 + k - 1
 			overhangs = ts[c] + hi > t_end + tol
